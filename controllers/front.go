@@ -1,23 +1,34 @@
 package controllers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
 
+	"github.com/santiagomed93/golangbootcamp/database"
+
+	"github.com/santiagomed93/golangbootcamp/repositories"
 	"github.com/santiagomed93/golangbootcamp/services"
 )
 
-func RegisterControllers(db *sql.DB) {
-	RegisterItemControllers(db)
+func RegisterControllers(db *database.Database) {
+	RegisterItemControllers()
+	RegisterCartController(db)
 }
 
-func RegisterItemControllers(db *sql.DB) {
+func RegisterItemControllers() {
 	itemService := services.NewItemService()
-	itemController := newItemController(itemService)
+	itemController := NewItemController(itemService)
 	http.Handle("/items", *itemController)
 	http.Handle("/items/", *itemController)
+}
+
+func RegisterCartController(db *database.Database) {
+	cartRepository := repositories.NewCartRepository(db)
+	cartService := services.NewCartService(cartRepository)
+	cartController := NewCartController(cartService)
+	http.Handle("/carts", *cartController)
+	http.Handle("/carts/", *cartController)
 }
 
 func encodeResponseAsJSON(data interface{}, w io.Writer) {

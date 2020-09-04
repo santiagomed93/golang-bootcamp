@@ -70,7 +70,7 @@ func (it *itemController) getByID(idItem int, response http.ResponseWriter) {
 	encodeResponseAsJSON(item, response)
 }
 
-func newItemController(itemService ItemService) *itemController {
+func NewItemController(itemService ItemService) *itemController {
 	return &itemController{
 		itemIDPattern: regexp.MustCompile(`^/items/(\d+)/?`),
 		ItemService:   itemService,

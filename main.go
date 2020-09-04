@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
-	dbConn := database.SetupDatabase()
-	defer dbConn.Close()
+	dbConn := database.NewDatabase()
+	defer dbConn.Conn.Close()
 	controllers.RegisterControllers(dbConn)
 	http.ListenAndServe(":8080", nil)
 }
