@@ -15,8 +15,8 @@ type itemController struct {
 }
 
 type ItemService interface {
-	GetItem(idItem int) (models.Item, error)
-	GetItems() ([]models.Item, error)
+	GetItem(idItem int) (models.ItemAPI, error)
+	GetItems() ([]models.ItemAPI, error)
 }
 
 func (it itemController) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -63,7 +63,7 @@ func (it *itemController) getByID(idItem int, response http.ResponseWriter) {
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if item == (models.Item{}) {
+	if item == (models.ItemAPI{}) {
 		response.WriteHeader(http.StatusNotFound)
 		return
 	}
