@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/santiagomed93/golangbootcamp/models"
+	"github.com/santiagomed93/golangbootcamp/models/responses"
 )
 
 type cartController struct {
@@ -22,6 +23,9 @@ type CartService interface {
 	CreateCart(models.Cart) (int, error)
 	UpdateCartByID(int, models.Cart) error
 	DeleteCartByID(int) error
+	CreateCartItem(int, models.ItemDB) error
+	UpdateCartItemQuantity(int, int, int) error
+	DeleteCartItemByID(int, int) error
 }
 
 func (ca cartController) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -108,6 +112,7 @@ func (ca cartController) ServeHTTP(response http.ResponseWriter, request *http.R
 func (ca *cartController) getAllCarts(response http.ResponseWriter, request *http.Request) {
 	carts, err := ca.cartService.GetAllCarts()
 	if err != nil {
+		writeLog(ERROR, err.Error())
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte("Could not get carts"))
 		return
@@ -118,6 +123,7 @@ func (ca *cartController) getAllCarts(response http.ResponseWriter, request *htt
 func (ca *cartController) getCartByID(id int, response http.ResponseWriter) {
 	cart, err := ca.cartService.GetCartByID(id)
 	if err != nil {
+		writeLog(ERROR, err.Error())
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte("Could not get cart by id"))
 		return
@@ -126,19 +132,22 @@ func (ca *cartController) getCartByID(id int, response http.ResponseWriter) {
 }
 
 func (ca *cartController) createCart(response http.ResponseWriter, request *http.Request) {
-	cart, err := ca.parseRequest(request)
+	cart, err := ca.parseCart(request)
 	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
+		writeLog(WARNING, err.Error())
+		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Could not parse cart object"))
 		return
 	}
 	if cart.ID != 0 {
+		writeLog(INFO, err.Error())
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("It's not necessary id field"))
 		return
 	}
 	createdCart, err := ca.cartService.CreateCart(cart)
 	if err != nil {
+		writeLog(ERROR, err.Error())
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte("Could not create cart"))
 		return
@@ -148,14 +157,16 @@ func (ca *cartController) createCart(response http.ResponseWriter, request *http
 }
 
 func (ca *cartController) modifyCartByID(id int, response http.ResponseWriter, request *http.Request) {
-	cart, err := ca.parseRequest(request)
+	cart, err := ca.parseCart(request)
 	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
+		writeLog(WARNING, err.Error())
+		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Could not parse cart object"))
 		return
 	}
 	err = ca.cartService.UpdateCartByID(id, cart)
 	if err != nil {
+		writeLog(ERROR, err.Error())
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte("Could not update cart"))
 		return
@@ -166,6 +177,7 @@ func (ca *cartController) modifyCartByID(id int, response http.ResponseWriter, r
 func (ca *cartController) deleteCartByID(id int, response http.ResponseWriter) {
 	err := ca.cartService.DeleteCartByID(id)
 	if err != nil {
+		writeLog(ERROR, err.Error())
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte("Could not delete cart"))
 		return
@@ -173,25 +185,83 @@ func (ca *cartController) deleteCartByID(id int, response http.ResponseWriter) {
 	response.WriteHeader(http.StatusOK)
 }
 
-func (ca *cartController) createCartItem(id int, response http.ResponseWriter, request *http.Request) {
-	//TODO
+func (ca *cartController) createCartItem(cartID int, response http.ResponseWriter, request *http.Request) {
+	cartItem, err := ca.parseItem(request)
+	if err != nil {
+		writeLog(WARNING, err.Error())
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte("Could not parse item object"))
+		return
+	}
+	if cartItem.ID == 0 {
+		writeLog(INFO, err.Error())
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte("It is necessary id field"))
+		return
+	}
+	err = ca.cartService.CreateCartItem(cartID, cartItem)
+	if err != nil {
+		writeLog(ERROR, err.Error())
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte("Could not create cart item"))
+		return
+	}
+	response.WriteHeader(http.StatusOK)
+
 }
 
 func (ca *cartController) modifyItemCartQuantity(cartID int, itemID int, response http.ResponseWriter, request *http.Request) {
-	//TODO
+	cartItem, err := ca.parseItem(request)
+	if err != nil {
+		writeLog(WARNING, err.Error())
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte("Could not parse item object"))
+		return
+	}
+	if cartItem.Quantity <= 0 {
+		writeLog(INFO, err.Error())
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte("Quantity should not be 0 or negative"))
+		return
+	}
+	err = ca.cartService.UpdateCartItemQuantity(cartID, itemID, cartItem.Quantity)
+	if err != nil {
+		writeLog(ERROR, err.Error())
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte("Could not update cart item"))
+		return
+	}
+	newItemResponse := responses.ItemResponse{CartID: cartID, ItemID: itemID, Quantity: cartItem.Quantity}
+	encodeResponseAsJSON(newItemResponse, response)
 }
 
 func (ca *cartController) deleteItemCart(cartID int, itemID int, response http.ResponseWriter) {
-	//TODO
+	err := ca.cartService.DeleteCartItemByID(cartID, itemID)
+	if err != nil {
+		writeLog(ERROR, err.Error())
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte("Could not delete cart item"))
+		return
+	}
+	response.WriteHeader(http.StatusOK)
 }
 
-func (ca *cartController) parseRequest(r *http.Request) (models.Cart, error) {
-	var c models.Cart
-	err := json.NewDecoder(r.Body).Decode(&c)
+func (ca *cartController) parseCart(request *http.Request) (models.Cart, error) {
+	var cart models.Cart
+	err := json.NewDecoder(request.Body).Decode(&cart)
 	if err != nil {
 		return models.Cart{}, err
 	}
-	return c, nil
+	return cart, nil
+}
+
+func (ca *cartController) parseItem(request *http.Request) (models.ItemDB, error) {
+	var item models.ItemDB
+	err := json.NewDecoder(request.Body).Decode(&item)
+	if err != nil {
+		return models.ItemDB{}, err
+	}
+	return item, nil
 }
 
 func NewCartController(cartService CartService) *cartController {
